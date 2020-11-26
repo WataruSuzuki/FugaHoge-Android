@@ -1,22 +1,34 @@
 package com.example.hello.okhttp
 
 import android.os.Bundle
-import com.google.android.material.snackbar.Snackbar
+import android.view.Menu
+import android.view.MenuItem
+import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.findNavController
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
-import android.view.Menu
-import android.view.MenuItem
+import com.example.hello.mylibrary.NetworkInterceptor
 import com.example.hello.okhttp.databinding.ActivityMainBinding
+import com.google.android.material.snackbar.Snackbar
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var binding: ActivityMainBinding
+    private lateinit var interceptor: NetworkInterceptor
+    private lateinit var client: OkHttpClient
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        interceptor = NetworkInterceptor()
+        client = OkHttpClient.Builder().build()
         super.onCreate(savedInstanceState)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -29,8 +41,29 @@ class MainActivity : AppCompatActivity() {
         setupActionBarWithNavController(navController, appBarConfiguration)
 
         binding.fab.setOnClickListener { view ->
-            Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                    .setAction("Action", null).show()
+            GlobalScope.launch {
+                request(view)
+            }
+        }
+    }
+
+    suspend fun request(view: View) = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url("https://watarusuzuki.github.io")
+            .build()
+        client.newCall(request).execute().use {
+            if (it.isRedirect) {
+                return@use
+            }
+
+            var message = "(・∀・)b"
+            if (!it.isSuccessful) {
+                message = "(・A・)q"
+                interceptor.printError(response = it)
+            }
+            withContext(Dispatchers.Main) {
+                Snackbar.make(view, message, Snackbar.LENGTH_LONG).show()
+            }
         }
     }
 
